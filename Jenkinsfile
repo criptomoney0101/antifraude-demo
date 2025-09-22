@@ -67,10 +67,11 @@ pipeline {
         stage('Security Scan') {
             steps {
                 script {
-                    sh """
+                    // Usamos comillas simples para evitar la interpolación de variables de Groovy
+                    sh '''
                     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v $(pwd):/root/.cache/ aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${DOCKER_IMAGE}:${env.BUILD_ID}
-                    """
+                    -v $(pwd):/root/.cache/ aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ''' + "${DOCKER_IMAGE}:${env.BUILD_ID}" + '''
+                    '''
                 }
             }
         }
@@ -96,13 +97,13 @@ pipeline {
                     sh 'docker rm antifraude-staging || true'
                     
                     // Ejecutar nuevo contenedor
-                    sh """
+                    sh '''
                     docker run -d \
                     --name antifraude-staging \
                     -p 5001:5000 \
                     -e ENVIRONMENT=staging \
-                    ${REGISTRY}/${DOCKER_IMAGE}:${env.BUILD_ID}
-                    """
+                    ''' + "${REGISTRY}/${DOCKER_IMAGE}:${env.BUILD_ID}" + '''
+                    '''
                     
                     echo "Aplicación desplegada en staging (puerto 5001)"
                 }
