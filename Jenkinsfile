@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         DOCKER_IMAGE = 'antifraude-demo'
-        REGISTRY = 'localhost:5000'  # Registro local
+        REGISTRY = 'localhost:5000'  // Registro local
         SONAR_SCANNER_HOME = tool 'SonarQubeScanner'
     }
     
@@ -10,7 +10,7 @@ pipeline {
         // Etapa 1: Checkout del código
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/tu-usuario/antifraude-demo.git'
+                git branch: 'main', url: 'https://github.com/criptomoney0101/antifraude-demo.git'
                 echo "Código fuente obtenido de GitHub"
             }
         }
