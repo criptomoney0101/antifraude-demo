@@ -1,4 +1,4 @@
-pipeline {
+ipeline {
     agent any
     environment {
         DOCKER_IMAGE = 'antifraude-demo'
@@ -19,10 +19,10 @@ pipeline {
             steps {
                 script {
                     // Verificar Docker
-                    sh 'docker --version || echo "Docker no disponible"'
+                    sh 'docker --version'
                     
                     // Verificar conexión a SonarQube
-                    sh 'curl -f http://sonarqube:9000/api/system/status || echo "SonarQube no accesible"'
+                    sh 'curl -f http://sonarqube:9000/api/system/status || echo "SonarQube no accesible, usando URL alternativa"'
                 }
             }
         }
@@ -31,11 +31,9 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    // Verificar que exista el directorio de pruebas
-                    sh 'mkdir -p tests'
-                    
+                    // Usar el scanner directamente
                     withSonarQubeEnv('SonarQube') {
-                        sh 'sonar-scanner'
+                        sh 'sonar-scanner -Dsonar.projectKey=antifraude-demo -Dsonar.sources=. -Dsonar.host.url=http://sonarqube:9000'
                     }
                 }
             }
@@ -162,8 +160,7 @@ pipeline {
             script {
                 try {
                     echo 'Pipeline finalizado. Limpiando recursos...'
-                    // Solo ejecutar docker si está disponible
-                    sh 'which docker && docker image prune -f || echo "Docker no disponible para limpieza"'
+                    sh 'docker image prune -f'
                     cleanWs()
                 } catch (Exception e) {
                     echo "Error durante la limpieza: ${e.getMessage()}"
