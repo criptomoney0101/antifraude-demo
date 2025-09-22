@@ -3,7 +3,6 @@ pipeline {
     environment {
         DOCKER_IMAGE = 'antifraude-demo'
         REGISTRY = 'localhost:5000'  // Registro local
-        SONAR_SCANNER_HOME = tool 'SonarQubeScanner'
     }
     
     stages {
@@ -15,18 +14,34 @@ pipeline {
             }
         }
         
-        // Etapa 2: Análisis estático con SonarQube
+        // Etapa 2: Verificar entorno
+        stage('Verify Environment') {
+            steps {
+                script {
+                    // Verificar Docker
+                    sh 'docker --version || echo "Docker no disponible"'
+                    
+                    // Verificar conexión a SonarQube
+                    sh 'curl -f http://sonarqube:9000/api/system/status || echo "SonarQube no accesible"'
+                }
+            }
+        }
+        
+        // Etapa 3: Análisis estático con SonarQube
         stage('SonarQube Analysis') {
             steps {
                 script {
+                    // Verificar que exista el directorio de pruebas
+                    sh 'mkdir -p tests'
+                    
                     withSonarQubeEnv('SonarQube') {
-                        sh "${SONAR_SCANNER_HOME}/bin/sonar-scanner"
+                        sh 'sonar-scanner'
                     }
                 }
             }
         }
         
-        // Etapa 3: Verificación de Quality Gate
+        // Etapa 4: Verificación de Quality Gate
         stage('Quality Gate') {
             steps {
                 script {
@@ -40,7 +55,7 @@ pipeline {
             }
         }
         
-        // Etapa 4: Construcción de imagen Docker
+        // Etapa 5: Construcción de imagen Docker
         stage('Build Docker Image') {
             steps {
                 script {
@@ -50,7 +65,7 @@ pipeline {
             }
         }
         
-        // Etapa 5: Ejecución de pruebas unitarias
+        // Etapa 6: Ejecución de pruebas unitarias
         stage('Run Tests') {
             steps {
                 script {
@@ -63,11 +78,10 @@ pipeline {
             }
         }
         
-        // Etapa 6: Escaneo de seguridad en imagen Docker
+        // Etapa 7: Escaneo de seguridad en imagen Docker
         stage('Security Scan') {
             steps {
                 script {
-                    // Usamos comillas simples para evitar la interpolación de variables de Groovy
                     sh '''
                     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
                     -v $(pwd):/root/.cache/ aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ''' + "${DOCKER_IMAGE}:${env.BUILD_ID}" + '''
@@ -76,7 +90,7 @@ pipeline {
             }
         }
         
-        // Etapa 7: Push al registro local
+        // Etapa 8: Push al registro local
         stage('Push to Registry') {
             steps {
                 script {
@@ -88,7 +102,7 @@ pipeline {
             }
         }
         
-        // Etapa 8: Despliegue en Staging
+        // Etapa 9: Despliegue en Staging
         stage('Deploy to Staging') {
             steps {
                 script {
@@ -110,7 +124,7 @@ pipeline {
             }
         }
         
-        // Etapa 9: Pruebas de humo (Smoke Tests)
+        // Etapa 10: Pruebas de humo (Smoke Tests)
         stage('Smoke Tests') {
             steps {
                 script {
@@ -145,19 +159,22 @@ pipeline {
     // Acciones post-ejecución
     post {
         always {
-            echo 'Pipeline finalizado. Limpiando recursos...'
-            sh 'docker image prune -f'
-            cleanWs()
+            script {
+                try {
+                    echo 'Pipeline finalizado. Limpiando recursos...'
+                    // Solo ejecutar docker si está disponible
+                    sh 'which docker && docker image prune -f || echo "Docker no disponible para limpieza"'
+                    cleanWs()
+                } catch (Exception e) {
+                    echo "Error durante la limpieza: ${e.getMessage()}"
+                }
+            }
         }
         success {
             echo 'Pipeline ejecutado exitosamente'
-            // Notificación a Slack (opcional)
-            // slackSend channel: '#devops', message: "Pipeline exitoso: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
         }
         failure {
             echo 'Pipeline fallido. Revisar logs.'
-            // Notificación a Slack (opcional)
-            // slackSend channel: '#devops', color: 'danger', message: "Pipeline fallido: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
         }
     }
 }
